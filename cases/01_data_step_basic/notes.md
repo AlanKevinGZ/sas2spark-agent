@@ -1,0 +1,3 @@
+Habla demasiado. Para el agente necesitas que devuelva solo código, sin explicaciones ni markdown. Eso se resuelve con el prompt y con un paso que extraiga el bloque ```python.
+Inventó datos y su propia SparkSession. El agente tiene que recibir instrucciones fijas del tipo: “la sesión spark ya existe, lee de esta ruta y escribe en esta otra”. Si no, cada traducción sale distinta y no la puedes ejecutar ni comparar.
+No mencionó los faltantes. En este caso tuvo suerte: con x > 5, ni SAS ni Spark incluyen nulls. Pero con x < 5, SAS sí incluye los faltantes (porque . es menor que todo) y Spark no. El LLM no lo va a notar solo. Ahí entra tu base de reglas y el comparador lo va a detectar.
