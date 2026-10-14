@@ -30,7 +30,7 @@ def execute(state: State):
 
 
 def fix(state: State):
-    codigo = f"código v{state['attempt'] + 1}"   # ← corregido
+    codigo = f"código v{state['attempt'] + 1}"  
     print(f"Corrigiendo → {codigo}")
     return {"pyspark_code": codigo}
 
