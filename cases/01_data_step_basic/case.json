@@ -1,0 +1,7 @@
+{
+    "name": "DATA step básico",
+    "input_files": ["transactions.csv"],
+    "output_file": "trx_clean.csv",
+    "keys": ["trx_id"],
+    "check_order": false
+}
