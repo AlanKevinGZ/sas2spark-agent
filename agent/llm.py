@@ -33,14 +33,21 @@ def get_llm():
 
     raise ValueError(f"LLM_PROVIDER no soportado: {provider}")
 
-def invoke_llm(messages, retries=3, wait=5):
-    """Llama al LLM con reintentos ante errores de red."""
+
+def _is_rate_limit(e):
+    texto = f"{type(e).__name__} {e}".lower()
+    return any(s in texto for s in ("ratelimit", "429", "resourceexhausted", "quota"))
+
+
+def invoke_llm(messages, retries=4, wait=5):
+    """Llama al LLM con reintentos. Si es límite de cuota, espera más."""
     llm = get_llm()
     for intento in range(1, retries + 1):
         try:
             return llm.invoke(messages).content
         except Exception as e:
-            print(f"   ⚠️  Error del LLM (intento {intento}/{retries}): {type(e).__name__}")
             if intento == retries:
                 raise
-            time.sleep(wait * intento)   # espera 5s, 10s, 15s..
+            espera = 60 if _is_rate_limit(e) else wait * intento   # el límite es por minuto
+            print(f"   ⚠️  {type(e).__name__} (intento {intento}/{retries}), esperando {espera}s...")
+            time.sleep(espera)

@@ -1,0 +1,10 @@
+case,mode,run,passed,attempts,seconds,error
+01_data_step_basic,baseline,1,False,1,17.8,
+01_data_step_basic,rules,1,True,1,29.6,
+01_data_step_basic,rules_loop,1,True,1,32.6,
+02_proc_sort_nodupkey,baseline,1,False,1,18.5,
+02_proc_sort_nodupkey,rules,1,True,1,14.8,
+02_proc_sort_nodupkey,rules_loop,1,True,1,17.8,
+03_merge_left,baseline,1,False,1,49.3,
+03_merge_left,rules,1,False,1,26.8,
+03_merge_left,rules_loop,1,True,2,64.2,

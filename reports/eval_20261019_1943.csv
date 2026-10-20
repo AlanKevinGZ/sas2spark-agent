@@ -1,0 +1,10 @@
+case,mode,run,passed,attempts,seconds,error
+01_data_step_basic,baseline,1,False,1,17.1,
+01_data_step_basic,rules,1,True,1,19.3,
+01_data_step_basic,rules_loop,1,True,1,20.3,
+02_proc_sort_nodupkey,baseline,1,False,0,28.6,"GoogleRateLimitError: Error calling model 'gemini-2.5-flash' (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan a"
+02_proc_sort_nodupkey,rules,1,True,1,40.4,
+02_proc_sort_nodupkey,rules_loop,1,False,0,28.5,"GoogleRateLimitError: Error calling model 'gemini-2.5-flash' (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan a"
+03_merge_left,baseline,1,False,0,28.7,"GoogleRateLimitError: Error calling model 'gemini-2.5-flash' (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan a"
+03_merge_left,rules,1,False,0,28.0,"GoogleRateLimitError: Error calling model 'gemini-2.5-flash' (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan a"
+03_merge_left,rules_loop,1,False,0,28.3,"GoogleRateLimitError: Error calling model 'gemini-2.5-flash' (RESOURCE_EXHAUSTED): 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan a"

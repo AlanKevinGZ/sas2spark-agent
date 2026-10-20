@@ -154,6 +154,46 @@ c = (df.withColumn("_rn", F.row_number().over(w))
 
 ---
 
+## R12. `MERGE` con `BY` (uno a muchos)
+
+**SAS:** `MERGE` NO es un join normal. Lee las filas de cada tabla en orden, dentro de cada grupo del `BY`:
+
+1. **Llaves nulas:** un faltante en el `BY` SÍ empata con otro faltante.
+2. **`IN=`:** `in=a` vale 1 si la tabla `a` tiene filas en ese grupo del `BY` (en TODO el grupo).
+   - `if a;` → left join; `if a and b;` → inner; sin `if` → full outer.
+3. **Columnas en común (no `BY`):** la tabla que se lee DESPUÉS sobrescribe.
+   En uno a muchos (`a` = muchos, `b` = uno):
+   - en la PRIMERA fila del grupo gana el valor de `b`, AUNQUE sea faltante;
+   - en las SIGUIENTES filas del grupo gana el valor de `a` (porque `b` ya no se vuelve a leer).
+4. **Orden:** el output sale ordenado por el `BY` (faltantes primero) y, dentro del grupo, en el orden original de `a`.
+
+**PySpark** (asumiendo que `b` tiene máximo una fila por llave):
+```sas
+data out; merge a(in=ina) b(in=inb); by id; if ina; flag = inb; run;
+```
+```python
+a = a.withColumn("_row", F.monotonically_increasing_id())
+b2 = (b.withColumnRenamed("id", "_b_id")
+        .withColumnRenamed("col_comun", "_b_col_comun")
+        .withColumn("_in_b", F.lit(1)))
+
+j = a.join(b2, a["id"].eqNullSafe(b2["_b_id"]), "left")   # eqNullSafe: null empata con null
+
+w = Window.partitionBy("id").orderBy("_row")
+j = j.withColumn("_first", F.row_number().over(w) == 1)
+
+j = (j.withColumn("col_comun",
+          F.when(F.col("_first") & F.col("_in_b").isNotNull(), F.col("_b_col_comun"))
+           .otherwise(F.col("col_comun")))
+      .withColumn("flag", F.when(F.col("_in_b").isNotNull(), 1).otherwise(0)))
+
+out = (j.orderBy(F.col("id").asc_nulls_first(), F.col("_row"))
+        .drop("_b_id", "_b_col_comun", "_in_b", "_first", "_row"))
+```
+NO uses `coalesce` para las columnas comunes: SAS sí sobrescribe con faltante.
+
+---
+
 # Reglas del contrato (obligatorias)
 
 1. `spark`, `F` (pyspark.sql.functions), `Window`, `INPUT_DIR` y `OUTPUT_PATH` YA EXISTEN. No crees SparkSession, no hagas imports de pyspark y no redefinas esas variables.

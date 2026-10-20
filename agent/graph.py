@@ -26,26 +26,8 @@ class State(TypedDict):
     max_attempts: int
     history: list
     inputs_info: str
-
-
-# ---------- CÓDIGO FALSO (en la Fase 4 lo reemplaza el LLM) ----------
-CODE_OK = '''
-trx = (spark.read.option("header", True).option("inferSchema", True)
-       .csv(f"{INPUT_DIR}/transactions.csv"))
-df = trx.filter((F.trim(F.col("status")) != "CANCELLED") | F.col("status").isNull())
-df = df.withColumn("amount_mxn", F.col("amount") * F.col("fx_rate"))
-df = df.withColumn("segment",
-        F.when(F.col("amount_mxn") >= 10000, "HIGH")
-         .when(F.col("amount_mxn") >= 1000, "MEDIUM")
-         .otherwise("LOW"))
-df = df.withColumn("trx_month", F.trunc("trx_date", "month"))
-df = df.withColumn("flag_atm",
-        F.when((F.col("channel") == "ATM") & (F.col("amount_mxn") > 8000), 1).otherwise(0))
-df = df.select("trx_id", "customer_id", "trx_date", "trx_month", "amount_mxn",
-               "segment", "channel", "status", "flag_atm")
-df.toPandas().to_csv(OUTPUT_PATH, index=False)
-'''
-
+    problems_log: list
+    use_rules: bool
 
 # ---------- helpers de rutas ----------
 def _paths(state):
@@ -75,7 +57,8 @@ def load_case(state: State):
 def translate(state: State):
     print("🤖 Traduciendo con LLM...")
     messages = build_translate_messages(
-        state["sas_code"], state["inputs_info"], state["config"]["output_file"]
+        state["sas_code"], state["inputs_info"], state["config"]["output_file"],
+        use_rules=state.get("use_rules", True),
     )
     texto = invoke_llm(messages)
     return {"pyspark_code": extract_code(texto)}
@@ -102,7 +85,6 @@ def compare(state: State):
         "history": state["history"] + [f"intento {state['attempt']}: comparación ok={r['ok']}"],
     }
 
-
 def fix(state: State):
     # ¿Qué falló: la ejecución o la comparación?
     if not state["exec_result"]["ok"]:
@@ -113,13 +95,24 @@ def fix(state: State):
             f"{state['compare_result']['reason']}"
         )
 
+    # Problemas de intentos ANTERIORES (el actual va aparte, en "Problema detectado")
+    anteriores = state.get("problems_log", [])
+    previous_problems = (
+        "\n".join(f"- Intento {i + 1}: {p}" for i, p in enumerate(anteriores))
+        if anteriores else "Ninguno"
+    )
+
     print("🛠️  Corrigiendo con LLM...")
     messages = build_fix_messages(
-        state["sas_code"], state["inputs_info"], state["pyspark_code"], problem
+        state["sas_code"], state["inputs_info"], state["pyspark_code"],
+        problem, previous_problems,
+        use_rules=state.get("use_rules", True),
     )
     texto = invoke_llm(messages)
-    return {"pyspark_code": extract_code(texto)}
-
+    return {
+        "pyspark_code": extract_code(texto),
+        "problems_log": anteriores + [problem],
+    }
 
 def report(state: State):
     ok = state.get("compare_result", {}).get("ok", False)
@@ -167,15 +160,26 @@ def build_graph():
     g.add_edge("report", END)
     return g.compile()
 
+def run_case(case_dir, max_attempts=3, use_rules=True):
+    """Corre un caso y regresa un resumen del resultado."""
+    app = build_graph()
+    final = app.invoke({
+        "case_dir": case_dir,
+        "attempt": 0,
+        "max_attempts": max_attempts,
+        "history": [],
+        "problems_log": [],
+        "use_rules": use_rules,
+    })
+    return {
+        "case": Path(case_dir).name,
+        "passed": final.get("compare_result", {}).get("ok", False),
+        "attempts": final["attempt"],
+    }
+
 
 if __name__ == "__main__":
     import sys
 
     case_dir = sys.argv[1] if len(sys.argv) > 1 else "cases/01_data_step_basic"
-    app = build_graph()
-    app.invoke({
-        "case_dir": case_dir,
-        "attempt": 0,
-        "max_attempts": 3,
-        "history": [],
-    })
+    print(run_case(case_dir))

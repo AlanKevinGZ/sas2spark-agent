@@ -1,0 +1,7 @@
+{
+    "name": "MERGE con IN= (left join)",
+    "input_files": ["accounts.csv", "customers.csv"],
+    "output_file": "acct_enriched.csv",
+    "keys": ["account_id"],
+    "check_order": true
+}

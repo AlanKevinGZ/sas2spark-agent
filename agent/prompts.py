@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 
-RULES_PATH = Path("rules/sas_semantics.md")
+RULES_DIR = Path("rules")
 
 
 # ---------- PLANTILLAS ----------
@@ -33,6 +33,8 @@ Responde solo con el bloque ```python```.
 """
 
 FIX_TEMPLATE = """Tu traducción anterior NO produce el resultado correcto.
+## Intentos anteriores que también fallaron (NO repitas estos errores)
+{previous_problems}
 
 ## Programa SAS original
 ```sas
@@ -57,9 +59,13 @@ Responde solo con el bloque ```python```.
 
 
 # ---------- HELPERS ----------
-def load_rules():
-    return RULES_PATH.read_text(encoding="utf-8")
-
+def load_rules(use_rules=True):
+    """Contrato siempre; reglas SAS solo si use_rules=True."""
+    contract = (RULES_DIR / "contract.md").read_text(encoding="utf-8")
+    if not use_rules:
+        return contract
+    semantics = (RULES_DIR / "sas_semantics.md").read_text(encoding="utf-8")
+    return semantics + "\n\n" + contract
 
 def describe_inputs(input_dir, files, sample_rows=3):
     """Resume cada CSV de entrada: columnas, tipos, nulls y ejemplos."""
@@ -84,9 +90,9 @@ def extract_code(text):
 
 
 # ---------- CONSTRUCTORES DE MENSAJES ----------
-def build_translate_messages(sas_code, inputs_info, output_file):
+def build_translate_messages(sas_code, inputs_info, output_file, use_rules=True):
     return [
-        ("system", SYSTEM_TEMPLATE.format(rules=load_rules())),
+        ("system", SYSTEM_TEMPLATE.format(rules=load_rules(use_rules))),
         ("human", TRANSLATE_TEMPLATE.format(
             sas_code=sas_code,
             inputs_info=inputs_info,
@@ -95,13 +101,15 @@ def build_translate_messages(sas_code, inputs_info, output_file):
     ]
 
 
-def build_fix_messages(sas_code, inputs_info, previous_code, problem):
+def build_fix_messages(sas_code, inputs_info, previous_code, problem,
+                       previous_problems="Ninguno", use_rules=True):
     return [
-        ("system", SYSTEM_TEMPLATE.format(rules=load_rules())),
+        ("system", SYSTEM_TEMPLATE.format(rules=load_rules(use_rules))),
         ("human", FIX_TEMPLATE.format(
             sas_code=sas_code,
             inputs_info=inputs_info,
             previous_code=previous_code,
             problem=problem,
+            previous_problems=previous_problems,
         )),
     ]
