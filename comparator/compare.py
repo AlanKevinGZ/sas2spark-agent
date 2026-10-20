@@ -98,6 +98,24 @@ def compare_csv(csv_esperado, csv_generado, config=None):
             )
 
     if problemas:
+        if check_order:
+            exp_s = _sort_rows(df_exp, keys, False)
+            gen_s = _sort_rows(df_gen, keys, False)
+            mismo_contenido = not any(
+                _diff_mask(exp_s[c], gen_s[c]).any() for c in cols
+            )
+            if mismo_contenido:
+                col_orden = keys[0] if keys else cols[0]
+                return {
+                    "ok": False,
+                    "reason": (
+                        "Las filas y los valores son CORRECTOS, pero el ORDEN no coincide. "
+                        f"Los primeros 5 '{col_orden}' esperados: {df_exp[col_orden].head(5).tolist()}; "
+                        f"obtenidos: {df_gen[col_orden].head(5).tolist()}. "
+                        "Ordena el resultado final como lo hace SAS (los faltantes van primero)."
+                    ),
+                }
+
         return {"ok": False, "reason": "Valores distintos: " + "; ".join(problemas)}
 
     return {"ok": True, "reason": "Los CSV son iguales"}

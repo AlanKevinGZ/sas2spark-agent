@@ -1,0 +1,7 @@
+{
+    "name": "PROC SORT NODUPKEY (último por cliente)",
+    "input_files": ["customer_snapshots.csv"],
+    "output_file": "latest_customers.csv",
+    "keys": ["customer_id"],
+    "check_order": true
+}

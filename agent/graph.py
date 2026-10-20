@@ -6,6 +6,13 @@ from langgraph.graph import StateGraph, END
 from agent.executor import run_pyspark
 from comparator.compare import compare_csv, load_case_config
 
+from agent.llm import invoke_llm
+
+
+from agent.prompts import (
+    build_translate_messages, build_fix_messages, describe_inputs, extract_code,
+)
+
 
 # ---------- STATE ----------
 class State(TypedDict):
@@ -18,6 +25,7 @@ class State(TypedDict):
     attempt: int
     max_attempts: int
     history: list
+    inputs_info: str
 
 
 # ---------- CÓDIGO FALSO (en la Fase 4 lo reemplaza el LLM) ----------
@@ -38,12 +46,6 @@ df = df.select("trx_id", "customer_id", "trx_date", "trx_month", "amount_mxn",
 df.toPandas().to_csv(OUTPUT_PATH, index=False)
 '''
 
-# Bug a propósito: redondear sin decimales
-CODE_BUG = CODE_OK.replace(
-    'F.col("amount") * F.col("fx_rate")',
-    'F.round(F.col("amount") * F.col("fx_rate"), 0)',
-)
-
 
 # ---------- helpers de rutas ----------
 def _paths(state):
@@ -61,17 +63,22 @@ def _paths(state):
 # ---------- NODOS ----------
 def load_case(state: State):
     case = Path(state["case_dir"])
+    config = load_case_config(case)
     print(f"📂 Cargando caso: {case.name}")
     return {
-        "config": load_case_config(case),
+        "config": config,
         "sas_code": (case / "program.sas").read_text(encoding="utf-8"),
+        "inputs_info": describe_inputs(case / "input", config["input_files"]),
     }
 
 
 def translate(state: State):
-    print("🔤 Traduciendo (FALSO: código con bug)")
-    return {"pyspark_code": CODE_BUG}
-
+    print("🤖 Traduciendo con LLM...")
+    messages = build_translate_messages(
+        state["sas_code"], state["inputs_info"], state["config"]["output_file"]
+    )
+    texto = invoke_llm(messages)
+    return {"pyspark_code": extract_code(texto)}
 
 def execute(state: State):
     p = _paths(state)
@@ -97,8 +104,21 @@ def compare(state: State):
 
 
 def fix(state: State):
-    print("🛠️  Corrigiendo (FALSO: regresa código correcto)")
-    return {"pyspark_code": CODE_OK}
+    # ¿Qué falló: la ejecución o la comparación?
+    if not state["exec_result"]["ok"]:
+        problem = f"El código falló al ejecutarse. Error:\n{state['exec_result']['error']}"
+    else:
+        problem = (
+            "El código corrió, pero el resultado NO coincide con el esperado:\n"
+            f"{state['compare_result']['reason']}"
+        )
+
+    print("🛠️  Corrigiendo con LLM...")
+    messages = build_fix_messages(
+        state["sas_code"], state["inputs_info"], state["pyspark_code"], problem
+    )
+    texto = invoke_llm(messages)
+    return {"pyspark_code": extract_code(texto)}
 
 
 def report(state: State):
@@ -149,9 +169,12 @@ def build_graph():
 
 
 if __name__ == "__main__":
+    import sys
+
+    case_dir = sys.argv[1] if len(sys.argv) > 1 else "cases/01_data_step_basic"
     app = build_graph()
     app.invoke({
-        "case_dir": "cases/01_data_step_basic",
+        "case_dir": case_dir,
         "attempt": 0,
         "max_attempts": 3,
         "history": [],

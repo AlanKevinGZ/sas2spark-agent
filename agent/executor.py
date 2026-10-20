@@ -9,6 +9,9 @@ spark = SparkSession.builder.appName("sas2spark").master("local[*]").getOrCreate
 spark.sparkContext.setLogLevel("ERROR")
 INPUT_DIR = "{input_dir}"
 OUTPUT_PATH = "{output_path}"
+spark.conf.set("spark.sql.files.maxPartitionBytes", "1024")
+spark.conf.set("spark.sql.adaptive.coalescePartitions.enabled", "false")
+spark.conf.set("spark.sql.shuffle.partitions", "8")
 
 # ===== CÓDIGO GENERADO =====
 '''
