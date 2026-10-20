@@ -8,6 +8,11 @@ from comparator.compare import compare_csv, load_case_config
 
 from agent.llm import invoke_llm
 
+import json
+import shutil
+from datetime import datetime
+
+from storage.backend import prepare_case, publish_results
 
 from agent.prompts import (
     build_translate_messages, build_fix_messages, describe_inputs, extract_code,
@@ -121,6 +126,32 @@ def report(state: State):
     print(f"Resultado: {'✅ PASÓ' if ok else '❌ FALLÓ'} en {state['attempt']} intento(s)")
     for h in state["history"]:
         print("  -", h)
+
+    # Motivo final: el error de ejecución o el del comparador
+    if not state["exec_result"]["ok"]:
+        final_reason = state["exec_result"]["error"]
+    else:
+        final_reason = state["compare_result"]["reason"]
+
+    out_dir = Path("outputs") / Path(state["case_dir"]).name
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "final.py").write_text(state.get("pyspark_code", ""), encoding="utf-8")
+
+    rep = {
+        "case": out_dir.name,
+        "name": state["config"]["name"],
+        "passed": ok,
+        "attempts": state["attempt"],
+        "max_attempts": state["max_attempts"],
+        "use_rules": state.get("use_rules", True),
+        "history": state["history"],
+        "problems": state.get("problems_log", []),
+        "final_reason": final_reason,
+        "finished_at": datetime.now().isoformat(timespec="seconds"),
+    }
+    (out_dir / "report.json").write_text(
+        json.dumps(rep, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
     return {}
 
 
@@ -160,21 +191,33 @@ def build_graph():
     g.add_edge("report", END)
     return g.compile()
 
-def run_case(case_dir, max_attempts=3, use_rules=True):
-    """Corre un caso y regresa un resumen del resultado."""
+def run_case(case_dir, max_attempts=3, use_rules=True, run_id=None):
+    """Corre un caso: prepara (local o S3) → agente → publica resultados."""
+    run_id = run_id or datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    local_case = prepare_case(case_dir)              # en modo s3 descarga el caso
+    name = Path(local_case).name
+
+    out_dir = Path("outputs") / name
+    if out_dir.exists():
+        shutil.rmtree(out_dir)                       # sin restos de corridas anteriores
+
     app = build_graph()
     final = app.invoke({
-        "case_dir": case_dir,
+        "case_dir": local_case,
         "attempt": 0,
         "max_attempts": max_attempts,
         "history": [],
         "problems_log": [],
         "use_rules": use_rules,
     })
+
+    s3_prefix = publish_results(name, run_id)        # en modo s3 sube los resultados
     return {
-        "case": Path(case_dir).name,
+        "case": name,
         "passed": final.get("compare_result", {}).get("ok", False),
         "attempts": final["attempt"],
+        "s3_prefix": s3_prefix or "",
     }
 
 

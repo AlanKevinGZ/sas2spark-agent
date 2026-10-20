@@ -7,12 +7,14 @@ from pathlib import Path
 import pandas as pd
 
 from agent.graph import run_case
+from storage.backend import list_cases, mode as storage_mode
 
 MODES = {
     "baseline":   {"use_rules": False, "max_attempts": 1},
     "rules":      {"use_rules": True,  "max_attempts": 1},
     "rules_loop": {"use_rules": True,  "max_attempts": 3},
 }
+
 
 def build_summary(rows, modes):
     df = pd.DataFrame(rows)
@@ -52,9 +54,10 @@ def main():
     p.add_argument("--pause", type=float, default=5, help="segundos entre corridas")
     args = p.parse_args()
 
-    cases = args.cases or sorted(
-        str(c) for c in Path("cases").iterdir() if (c / "case.json").exists()
-    )
+    cases = args.cases or list_cases()                      # ← local o S3
+    ts = datetime.now().strftime("%Y%m%d_%H%M")             # ← antes del loop
+    print(f"Storage: {storage_mode()} | Casos: {len(cases)}")   # ← para saber en qué modo corre
+
     total = len(cases) * len(args.modes) * args.runs
     rows, k = [], 0
 
@@ -65,24 +68,24 @@ def main():
                 print(f"\n{'#' * 60}\n[{k}/{total}] {Path(case).name} | {mode} | corrida {run}")
                 t0 = time.time()
                 try:
-                    r = run_case(case, **MODES[mode])
+                    r = run_case(case, run_id=f"{ts}/{mode}_r{run}", **MODES[mode])   # ←
                     error = ""
                 except Exception as e:      # un fallo no detiene la evaluación
-                    r = {"case": Path(case).name, "passed": False, "attempts": 0}
+                    r = {"case": Path(case).name, "passed": False,
+                         "attempts": 0, "s3_prefix": ""}                              # ←
                     error = f"{type(e).__name__}: {e}"[:200]
                 rows.append({**r, "mode": mode, "run": run,
                              "seconds": round(time.time() - t0, 1), "error": error})
                 time.sleep(args.pause)
 
     # Guardar resultados
-    ts = datetime.now().strftime("%Y%m%d_%H%M")
     reports = Path("reports")
     reports.mkdir(exist_ok=True)
 
     raw = reports / f"eval_{ts}.csv"
     with open(raw, "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=["case", "mode", "run", "passed",
-                                          "attempts", "seconds", "error"])
+        w = csv.DictWriter(f, fieldnames=["case", "mode", "run", "passed", "attempts",
+                                          "seconds", "s3_prefix", "error"])          # ←
         w.writeheader()
         w.writerows(rows)
 
@@ -92,6 +95,12 @@ def main():
     print("\n" + "=" * 60 + "\nRESUMEN\n")
     print(summary)
     print(f"\nGuardado en {raw} y {raw.with_suffix('.md')}")
+
+    if storage_mode() == "s3":                                                       # ←
+        from storage import s3
+        s3.upload_file(raw, f"runs/{ts}/eval.csv")
+        s3.upload_file(raw.with_suffix(".md"), f"runs/{ts}/eval.md")
+        print(f"☁️  Evaluación subida a s3://{s3.bucket()}/runs/{ts}/")
 
 
 if __name__ == "__main__":

@@ -5,3 +5,4 @@ pyspark==3.5.*
 pandas
 python-dotenv
 pytest
+boto3
