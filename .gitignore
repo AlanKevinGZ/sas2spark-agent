@@ -1,6 +1,17 @@
-.venv/
+# Entornos virtuales (.venv, .venv_test, etc.)
+.venv*/
+
+# Secretos
 .env
+
+# Python
 __pycache__/
-outputs/
+.pytest_cache/
+.ruff_cache/
+
+# Notebooks
 .ipynb_checkpoints/
+
+# Generados por el agente
+outputs/
 .cache/

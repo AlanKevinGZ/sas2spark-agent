@@ -1,8 +1,23 @@
-langgraph
-langchain-core
-langchain-google-genai
-pyspark==3.5.*
-pandas
-python-dotenv
-pytest
-boto3
+# --- Agente ---
+langgraph==1.2.14
+langchain-core==1.6.10
+langchain-google-genai==4.4.1
+
+# --- Datos ---
+pyspark==3.5.9
+pandas==3.0.6
+numpy==2.4.6
+
+# --- AWS ---
+boto3==1.43.116
+
+# --- Config ---
+python-dotenv==1.2.4
+
+# --- Desarrollo ---
+pytest==9.1.1
+ruff==0.17.1
+
+# --- Proveedores de LLM opcionales (descomenta el que uses) ---
+# langchain-groq
+# langchain-ollama
