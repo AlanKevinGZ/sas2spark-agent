@@ -1,0 +1,7 @@
+{
+    "name": "RETAIN + FIRST./LAST. (acumulado por cliente)",
+    "input_files": ["transactions.csv"],
+    "output_file": "cust_running.csv",
+    "keys": ["trx_id"],
+    "check_order": true
+}

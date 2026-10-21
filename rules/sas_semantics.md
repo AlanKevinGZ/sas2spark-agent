@@ -194,6 +194,45 @@ NO uses `coalesce` para las columnas comunes: SAS sí sobrescribe con faltante.
 
 ---
 
+## R13. `RETAIN`, `FIRST.` / `LAST.` y acumulados
+
+**SAS:** un DATA step con `BY` recorre las filas EN ORDEN. `FIRST.x` / `LAST.x` marcan la primera y la última fila de cada grupo. `RETAIN` (y los sum statements como `n + 1;`) conserva el valor entre filas.
+
+**Funciones vs operadores con faltantes:**
+- `a + b` → faltante si alguno es faltante.
+- `sum(a, b)` → IGNORA faltantes (`sum(0, .) = 0`).
+
+Un acumulado `total = sum(total, x)` que se reinicia en `first.` a 0 NUNCA es faltante: los faltantes cuentan como 0.
+
+**PySpark:** usa una `Window` ordenada EXACTAMENTE como el `PROC SORT` previo, con `_row` para los empates (ver R10):
+```sas
+proc sort data=a out=s; by id fecha; run;
+data out; set s; by id;
+  retain total;
+  if first.id then total = 0;
+  total = sum(total, monto);
+  n + 1;  if first.id then n = 1;
+  es_ultimo = last.id;
+run;
+```
+```python
+df = df.withColumn("_row", F.monotonically_increasing_id())
+w_order = [F.col("fecha").asc_nulls_first(), F.col("_row")]
+w = Window.partitionBy("id").orderBy(*w_order)
+w_acum = w.rowsBetween(Window.unboundedPreceding, Window.currentRow)
+
+out = (df
+    .withColumn("total", F.sum(F.coalesce(F.col("monto"), F.lit(0.0))).over(w_acum))  # sum() ignora faltantes
+    .withColumn("n", F.row_number().over(w))
+    .withColumn("_cnt", F.count(F.lit(1)).over(Window.partitionBy("id")))
+    .withColumn("es_ultimo", F.when(F.col("n") == F.col("_cnt"), 1).otherwise(0))
+    .orderBy(F.col("id").asc_nulls_first(), *w_order)
+    .drop("_row", "_cnt"))
+```
+Usa `rowsBetween` (no `rangeBetween`): con empates en la fecha, `range` sumaría las filas empatadas juntas.
+
+---
+
 # Reglas del contrato (obligatorias)
 
 1. `spark`, `F` (pyspark.sql.functions), `Window`, `INPUT_DIR` y `OUTPUT_PATH` YA EXISTEN. No crees SparkSession, no hagas imports de pyspark y no redefinas esas variables.

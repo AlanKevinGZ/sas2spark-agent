@@ -1,0 +1,7 @@
+{
+    "name": "PROC SQL con GROUP BY y HAVING",
+    "input_files": ["transactions.csv"],
+    "output_file": "cust_summary.csv",
+    "keys": ["customer_id"],
+    "check_order": true
+}
