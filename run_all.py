@@ -7,7 +7,8 @@ from pathlib import Path
 import pandas as pd
 
 from agent.graph import run_case
-from storage.backend import list_cases, mode as storage_mode
+from storage.backend import list_cases
+from storage.backend import mode as storage_mode
 
 MODES = {
     "baseline":   {"use_rules": False, "max_attempts": 1},
@@ -70,7 +71,7 @@ def main():
                 try:
                     r = run_case(case, run_id=f"{ts}/{mode}_r{run}", **MODES[mode])   # ←
                     error = ""
-                except Exception as e:      # un fallo no detiene la evaluación
+                except Exception as e:  # noqa: BLE001 - un fallo no detiene la evaluación
                     r = {"case": Path(case).name, "passed": False,
                          "attempts": 0, "s3_prefix": ""}                              # ←
                     error = f"{type(e).__name__}: {e}"[:200]

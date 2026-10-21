@@ -1,6 +1,6 @@
 import pytest
 
-import agent.graph as graph
+from agent import graph
 
 pytestmark = pytest.mark.spark
 
@@ -54,7 +54,7 @@ def test_loop_corrige_en_el_intento_2(monkeypatch):
 
 
 def test_se_rinde_al_llegar_al_maximo(monkeypatch):
-    fake, llamadas = _fake(CODE_BUG, CODE_BUG, CODE_BUG)
+    fake, _ = _fake(CODE_BUG, CODE_BUG, CODE_BUG)
     monkeypatch.setattr(graph, "invoke_llm", fake)
 
     r = graph.run_case(CASE, max_attempts=2)

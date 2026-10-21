@@ -51,6 +51,7 @@ def run_pyspark(code, input_dir, output_path, script_path, timeout=180):
     try:
         proc = subprocess.run(
             [sys.executable, str(script_path)],
+            check=False, 
             capture_output=True,
             text=True,
             encoding="utf-8",

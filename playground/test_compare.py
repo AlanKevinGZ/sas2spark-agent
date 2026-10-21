@@ -1,4 +1,5 @@
 from pathlib import Path
+
 import pandas as pd
 
 from comparator.compare import compare_csv, load_case_config

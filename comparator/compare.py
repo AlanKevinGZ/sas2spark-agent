@@ -1,9 +1,8 @@
-from pathlib import Path
 import json
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
 
 
 def load_case_config(case_dir):
@@ -58,7 +57,7 @@ def compare_csv(csv_esperado, csv_generado, config=None):
     try:
         df_exp = pd.read_csv(csv_esperado)
         df_gen = pd.read_csv(csv_generado)
-    except Exception as e:
+    except (pd.errors.ParserError, pd.errors.EmptyDataError, UnicodeDecodeError, OSError) as e:
         return {"ok": False, "reason": f"No se pudo leer un CSV: {e}"}
 
     # 2) ¿Mismas columnas?
